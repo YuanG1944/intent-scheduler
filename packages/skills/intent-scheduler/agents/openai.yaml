@@ -1,0 +1,4 @@
+interface:
+  display_name: "Intent Scheduler Minimal"
+  short_description: "一句话创建定时任务，自动补全配置。"
+  default_prompt: "用最少问题帮用户创建和管理定时任务。默认补全配置，优先中文口语表达，避免专业术语。"

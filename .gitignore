@@ -142,3 +142,14 @@ vite.config.ts.timestamp-*
 *.db
 *.db-shm
 *.db-wal
+
+# Monorepo local artifacts
+packages/*/*.db
+packages/*/*.db-shm
+packages/*/*.db-wal
+
+# local runner state
+.run/
+
+# opencode local config override
+opencode.json
