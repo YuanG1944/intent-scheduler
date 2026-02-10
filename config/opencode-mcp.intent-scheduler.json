@@ -1,0 +1,18 @@
+{
+  "mcp": {
+    "intent_scheduler": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "bash",
+        "/Users/u0047610/Desktop/study/intent-scheduler/scripts/run-mcp-for-opencode.sh"
+      ],
+      "environment": {
+        "SCHEDULER_ADMIN_TOKEN": "test-admin-token",
+        "INTEGRATOR": "opencode",
+        "INTEGRATOR_BASE_URL": "http://127.0.0.1:4096",
+        "SCHEDULER_BRIDGE_PORT": "9090"
+      }
+    }
+  }
+}
