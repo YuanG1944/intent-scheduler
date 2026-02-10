@@ -1,0 +1,4 @@
+interface:
+  display_name: "Intent Scheduler Minimal"
+  short_description: "Schedule tasks with near-zero config."
+  default_prompt: "Create and manage intent-scheduler MCP tasks with minimal required inputs and safe defaults."
