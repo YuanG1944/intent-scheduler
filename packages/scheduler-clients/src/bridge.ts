@@ -128,6 +128,8 @@ function formatCallbackMessage(payload: SchedulerCallbackPayload) {
   return {
     text,
     metadata: {
+      bridge: true,
+      source: "scheduler.callback",
       task_id: payload.task_id,
       run_id: payload.run_id,
       attempt: payload.attempt,
