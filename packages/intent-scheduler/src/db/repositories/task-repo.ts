@@ -290,13 +290,13 @@ export class TaskRepository {
             'created_at', t.created_at,
             'updated_at', t.updated_at
         ) AS task_json
-         FROM task_runs tr
-         JOIN tasks t ON t.id = tr.task_id
-         WHERE tr.status IN ('PENDING','RETRYING')
-           AND (tr.next_retry_at IS NULL OR tr.next_retry_at <= ?)
-           AND t.status = 'ACTIVE'
-         ORDER BY tr.scheduled_at ASC
-         LIMIT ?`,
+          FROM task_runs tr
+          JOIN tasks t ON t.id = tr.task_id
+          WHERE tr.status IN ('PENDING','RETRYING')
+            AND (tr.next_retry_at IS NULL OR tr.next_retry_at <= ?)
+            AND t.status = 'ACTIVE'
+          ORDER BY tr.scheduled_at ASC
+          LIMIT ?`,
       )
       .all(now, limit) as Array<TaskRun & { task_json: string }>;
   }
