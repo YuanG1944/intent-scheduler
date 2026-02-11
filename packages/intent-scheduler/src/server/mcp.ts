@@ -17,8 +17,8 @@ import { logger } from '../utils/logger';
 import type { CreateTaskInput, Task } from '../types';
 
 const authInput = {
-  workspace_id: z.string().min(1).describe('Workspace id'),
-  api_key: z.string().min(1).describe('Workspace API key'),
+  workspace_id: z.string().min(1).optional().describe('Workspace id (optional with env default)'),
+  api_key: z.string().min(1).optional().describe('Workspace API key (optional with env default)'),
 };
 
 const createTaskInputSchema = {
@@ -36,10 +36,12 @@ const createTaskInputSchema = {
     input: z.record(z.string(), z.unknown()),
     skill_ref: z.string().optional(),
   }),
-  delivery: z.object({
-    callback_url: z.string().min(1),
-    callback_headers: z.record(z.string(), z.string()).optional(),
-  }),
+  delivery: z
+    .object({
+      callback_url: z.string().min(1).optional(),
+      callback_headers: z.record(z.string(), z.string()).optional(),
+    })
+    .optional(),
   retry_policy: z
     .object({
       max_attempts: z.number().int().min(1).max(10).optional(),
@@ -287,6 +289,10 @@ function resolveWorkspaceAndApiKey(
   };
 }
 
+function resolveDefaultCallbackUrl(): string {
+  return process.env.SCHEDULER_DEFAULT_CALLBACK_URL ?? 'http://127.0.0.1:9090/api/scheduler/callback';
+}
+
 function resolveSessionId(
   explicitSessionId: string | undefined,
   extra?: RequestHandlerExtra<ServerRequest, ServerNotification>,
@@ -346,6 +352,18 @@ export async function startServer(): Promise<void> {
     }
   }
 
+  const bootWorkspaceId = process.env.SCHEDULER_DEFAULT_WORKSPACE_ID ?? 'opencode-prod';
+  const bootWorkspaceName = process.env.SCHEDULER_DEFAULT_WORKSPACE_NAME ?? 'Default Workspace';
+  const bootWorkspaceApiKey = process.env.SCHEDULER_DEFAULT_API_KEY;
+  if (bootWorkspaceApiKey) {
+    workspaceRepo.upsertWorkspace(bootWorkspaceId, bootWorkspaceName, bootWorkspaceApiKey);
+    logger.info('server.workspace.auto_upserted', { workspace_id: bootWorkspaceId });
+  } else {
+    logger.warn('server.workspace.auto_upsert_skipped', {
+      reason: 'SCHEDULER_DEFAULT_API_KEY is not set',
+    });
+  }
+
   server.registerTool(
     'scheduler_upsert_workspace',
     {
@@ -377,9 +395,11 @@ export async function startServer(): Promise<void> {
       inputSchema: createTaskInputSchema,
     },
     async input => {
-      assertAuth(input.workspace_id, input.api_key);
+      const auth = resolveWorkspaceAndApiKey(input.workspace_id, input.api_key);
+      assertAuth(auth.workspaceId, auth.apiKey);
       validateSchedule(input.schedule);
-      validateCallbackUrl(input.delivery.callback_url);
+      const callbackUrl = input.delivery?.callback_url ?? resolveDefaultCallbackUrl();
+      validateCallbackUrl(callbackUrl);
       if (!adapters.has(input.execution.adapter)) {
         throw new Error(
           `Unknown adapter: ${input.execution.adapter}. Available adapters: ${Array.from(adapters.keys()).join(', ')}`,
@@ -387,12 +407,15 @@ export async function startServer(): Promise<void> {
       }
 
       const createInput: CreateTaskInput = {
-        workspace_id: input.workspace_id,
+        workspace_id: auth.workspaceId,
         title: input.title,
         goal: input.goal,
         schedule: input.schedule,
         execution: input.execution,
-        delivery: input.delivery,
+        delivery: {
+          callback_url: callbackUrl,
+          callback_headers: input.delivery?.callback_headers,
+        },
         retry_policy: input.retry_policy,
         client_request_id: input.client_request_id,
         disallow_overlap: input.disallow_overlap,
@@ -430,9 +453,7 @@ export async function startServer(): Promise<void> {
       const executionEndpoint =
         process.env.SCHEDULER_DEFAULT_EXECUTE_ENDPOINT ??
         'http://127.0.0.1:9090/api/scheduler/execute';
-      const callbackUrl =
-        process.env.SCHEDULER_DEFAULT_CALLBACK_URL ??
-        'http://127.0.0.1:9090/api/scheduler/callback';
+      const callbackUrl = resolveDefaultCallbackUrl();
       validateCallbackUrl(callbackUrl);
 
       const sessionId = resolveSessionId(input.session_id, extra);
@@ -488,8 +509,9 @@ export async function startServer(): Promise<void> {
       inputSchema: listTasksInput,
     },
     async ({ workspace_id, api_key, status, adapter, limit, cursor }) => {
-      assertAuth(workspace_id, api_key);
-      const result = taskRepo.listTasks(workspace_id, { status, adapter, limit, cursor });
+      const auth = resolveWorkspaceAndApiKey(workspace_id, api_key);
+      assertAuth(auth.workspaceId, auth.apiKey);
+      const result = taskRepo.listTasks(auth.workspaceId, { status, adapter, limit, cursor });
       return toMcpResponse({
         tasks: result.tasks.map(parseTask),
         next_cursor: result.nextCursor,
@@ -504,8 +526,9 @@ export async function startServer(): Promise<void> {
       inputSchema: getTaskInput,
     },
     async ({ workspace_id, api_key, task_id }) => {
-      assertAuth(workspace_id, api_key);
-      const task = taskRepo.getTask(workspace_id, task_id);
+      const auth = resolveWorkspaceAndApiKey(workspace_id, api_key);
+      assertAuth(auth.workspaceId, auth.apiKey);
+      const task = taskRepo.getTask(auth.workspaceId, task_id);
       if (!task) {
         throw new Error('Task not found');
       }
@@ -521,8 +544,9 @@ export async function startServer(): Promise<void> {
       inputSchema: getTaskInput,
     },
     async ({ workspace_id, api_key, task_id }) => {
-      assertAuth(workspace_id, api_key);
-      const task = taskRepo.updateTaskStatus(workspace_id, task_id, 'PAUSED');
+      const auth = resolveWorkspaceAndApiKey(workspace_id, api_key);
+      assertAuth(auth.workspaceId, auth.apiKey);
+      const task = taskRepo.updateTaskStatus(auth.workspaceId, task_id, 'PAUSED');
       if (!task) {
         throw new Error('Task not found');
       }
@@ -541,8 +565,9 @@ export async function startServer(): Promise<void> {
       inputSchema: getTaskInput,
     },
     async ({ workspace_id, api_key, task_id }) => {
-      assertAuth(workspace_id, api_key);
-      const task = taskRepo.updateTaskStatus(workspace_id, task_id, 'ACTIVE');
+      const auth = resolveWorkspaceAndApiKey(workspace_id, api_key);
+      assertAuth(auth.workspaceId, auth.apiKey);
+      const task = taskRepo.updateTaskStatus(auth.workspaceId, task_id, 'ACTIVE');
       if (!task) {
         throw new Error('Task not found');
       }
@@ -561,8 +586,9 @@ export async function startServer(): Promise<void> {
       inputSchema: getTaskInput,
     },
     async ({ workspace_id, api_key, task_id }) => {
-      assertAuth(workspace_id, api_key);
-      const task = taskRepo.updateTaskStatus(workspace_id, task_id, 'DELETED');
+      const auth = resolveWorkspaceAndApiKey(workspace_id, api_key);
+      assertAuth(auth.workspaceId, auth.apiKey);
+      const task = taskRepo.updateTaskStatus(auth.workspaceId, task_id, 'DELETED');
       if (!task) {
         throw new Error('Task not found');
       }
@@ -577,14 +603,15 @@ export async function startServer(): Promise<void> {
       inputSchema: getTaskInput,
     },
     async ({ workspace_id, api_key, task_id }) => {
-      assertAuth(workspace_id, api_key);
-      const task = taskRepo.getTask(workspace_id, task_id);
+      const auth = resolveWorkspaceAndApiKey(workspace_id, api_key);
+      assertAuth(auth.workspaceId, auth.apiKey);
+      const task = taskRepo.getTask(auth.workspaceId, task_id);
       if (!task) {
         throw new Error('Task not found');
       }
       const run = await scheduler.runTaskNow(task);
       logger.info('tool.scheduler_run_task_now', {
-        workspace_id,
+        workspace_id: auth.workspaceId,
         task_id,
         run_id: run.id,
       });
@@ -604,14 +631,15 @@ export async function startServer(): Promise<void> {
       inputSchema: listRunsInput,
     },
     async ({ workspace_id, api_key, task_id, status, limit, cursor }) => {
-      assertAuth(workspace_id, api_key);
+      const auth = resolveWorkspaceAndApiKey(workspace_id, api_key);
+      assertAuth(auth.workspaceId, auth.apiKey);
       if (task_id) {
-        const task = taskRepo.getTask(workspace_id, task_id);
+        const task = taskRepo.getTask(auth.workspaceId, task_id);
         if (!task) {
           throw new Error('task_id is not in this workspace');
         }
       }
-      const result = taskRepo.listRuns(workspace_id, {
+      const result = taskRepo.listRuns(auth.workspaceId, {
         task_id,
         status,
         limit,

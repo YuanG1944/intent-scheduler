@@ -22,3 +22,22 @@ Usage:
 ```shell
 ln -sfn /your/path/intent-scheduler/packages/skills /your/path/.config/opencode/projects/intent-scheduler
 ```
+
+## MCP `environment` (zero-init)
+
+Use this environment block so chat can create tasks without first asking for `workspace_id`, `api_key`, or `callback_url`:
+
+```json
+{
+  "SCHEDULER_ADMIN_TOKEN": "test-admin-token",
+  "SCHEDULER_DEFAULT_WORKSPACE_ID": "opencode-prod",
+  "SCHEDULER_DEFAULT_WORKSPACE_NAME": "Opencode Workspace",
+  "SCHEDULER_DEFAULT_API_KEY": "opencode-prod-key",
+  "SCHEDULER_DEFAULT_TIMEZONE": "Asia/Shanghai",
+  "SCHEDULER_DEFAULT_EXECUTE_ENDPOINT": "http://127.0.0.1:9090/api/scheduler/execute",
+  "SCHEDULER_DEFAULT_CALLBACK_URL": "http://127.0.0.1:9090/api/scheduler/callback",
+  "INTEGRATOR": "opencode",
+  "INTEGRATOR_BASE_URL": "http://127.0.0.1:4096",
+  "SCHEDULER_BRIDGE_PORT": "9090"
+}
+```
