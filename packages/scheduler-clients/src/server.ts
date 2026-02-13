@@ -1,6 +1,7 @@
 import { serve } from "bun";
 import { createSchedulerBridge } from "./bridge";
 import { listIntegrators, resolveIntegratorModule } from "./integrators/registry";
+import type { OpencodeNoReplyMode } from "./integrators/opencode/sdk";
 import type { SchedulerExecuteRequest, SchedulerExecuteResponse } from "./types";
 
 const integrator = process.env.INTEGRATOR ?? "opencode";
@@ -8,11 +9,15 @@ const integratorBaseUrl = process.env.INTEGRATOR_BASE_URL;
 const sessionEndpoint = process.env.INTEGRATOR_SESSION_INGEST_URL;
 
 const sessionToken = process.env.SESSION_POST_TOKEN;
+const opencodeNoReply = process.env.OPENCODE_NO_REPLY?.toLowerCase() !== "false";
+const opencodeNoReplyMode = normalizeNoReplyMode(process.env.OPENCODE_NO_REPLY_MODE);
 const integratorModule = resolveIntegratorModule(integrator);
 const sessionClient = integratorModule.createSessionClient({
   base_url: integratorBaseUrl,
   endpoint: sessionEndpoint,
   token: sessionToken,
+  no_reply: opencodeNoReply,
+  no_reply_mode: opencodeNoReplyMode,
 });
 
 const app = createSchedulerBridge({
@@ -59,7 +64,17 @@ console.error(
       mode: integratorModule.mode,
       integrator_base_url: integratorBaseUrl,
       session_endpoint: sessionEndpoint,
+      opencode_no_reply: opencodeNoReply,
+      opencode_no_reply_mode: opencodeNoReplyMode,
       supported_integrators: listIntegrators(),
     },
   }),
 );
+
+function normalizeNoReplyMode(raw?: string): OpencodeNoReplyMode {
+  const value = (raw ?? "auto").trim().toLowerCase();
+  if (value === "always_true" || value === "always_false" || value === "auto") {
+    return value;
+  }
+  return "auto";
+}

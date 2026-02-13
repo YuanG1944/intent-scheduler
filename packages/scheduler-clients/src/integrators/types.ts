@@ -6,6 +6,8 @@ export interface IntegratorRuntimeConfig {
   base_url?: string;
   endpoint?: string;
   token?: string;
+  no_reply?: boolean;
+  no_reply_mode?: "auto" | "always_true" | "always_false";
 }
 
 export interface IntegratorModule {

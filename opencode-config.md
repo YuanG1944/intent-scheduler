@@ -38,6 +38,11 @@ Use this environment block so chat can create tasks without first asking for `wo
   "SCHEDULER_DEFAULT_CALLBACK_URL": "http://127.0.0.1:9090/api/scheduler/callback",
   "INTEGRATOR": "opencode",
   "INTEGRATOR_BASE_URL": "http://127.0.0.1:4096",
-  "SCHEDULER_BRIDGE_PORT": "9090"
+  "SCHEDULER_BRIDGE_PORT": "9090",
+  "OPENCODE_NO_REPLY": "false"
 }
 ```
+
+`OPENCODE_NO_REPLY`:
+- `true` (default): only append message to session, do not trigger model reply
+- `false`: send as user prompt and trigger model reply (recommended for "定时提问")

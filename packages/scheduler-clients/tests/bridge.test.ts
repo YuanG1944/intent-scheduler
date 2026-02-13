@@ -12,6 +12,34 @@ class MockSessionClient implements SessionClient {
 }
 
 describe("scheduler bridge", () => {
+  test("accepts execute payload with skill_ref=null", async () => {
+    const client = new MockSessionClient();
+    const app = createSchedulerBridge({
+      sessionClient: client,
+      hooks: {
+        async executeTask() {
+          return { status: "SUCCEEDED", summary: "ok", result: {} };
+        },
+      },
+    });
+
+    const response = await app.request("/api/scheduler/execute", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        task_id: "task1",
+        run_id: "run1",
+        workspace_id: "ws1",
+        session_id: "sess1",
+        goal: "hello",
+        skill_ref: null,
+        input: {},
+      }),
+    });
+
+    expect(response.status).toBe(200);
+  });
+
   test("accepts callback and pushes message", async () => {
     const client = new MockSessionClient();
     const app = createSchedulerBridge({
@@ -42,6 +70,6 @@ describe("scheduler bridge", () => {
 
     expect(response.status).toBe(200);
     expect(client.calls.length).toBe(1);
-    expect(client.calls[0]).toEqual({ sessionId: "sess1", text: "[SUCCEEDED] done" });
+    expect(client.calls[0]).toEqual({ sessionId: "sess1", text: "done" });
   });
 });

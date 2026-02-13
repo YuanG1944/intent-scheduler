@@ -4,7 +4,7 @@ export interface SchedulerExecuteRequest {
   workspace_id: string;
   session_id: string;
   goal: string;
-  skill_ref?: string;
+  skill_ref?: string | null;
   input?: Record<string, unknown>;
 }
 

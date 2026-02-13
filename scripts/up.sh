@@ -35,6 +35,8 @@ fi
 
 if [[ -f "$CLIENTS_PID_FILE" ]] && kill -0 "$(cat "$CLIENTS_PID_FILE")" 2>/dev/null; then
   echo "clients already running (pid=$(cat "$CLIENTS_PID_FILE"))"
+elif lsof -nP -iTCP:"$SCHEDULER_BRIDGE_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "clients skipped: port $SCHEDULER_BRIDGE_PORT already in use"
 else
   (
     cd "$ROOT_DIR"

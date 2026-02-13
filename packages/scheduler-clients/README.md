@@ -41,3 +41,9 @@ bun run src/server.ts
 - `SESSION_POST_TOKEN`: bearer token used to post session messages
 - `SCHEDULER_CALLBACK_BEARER_TOKEN`: verify scheduler callback auth
 - `SCHEDULER_BRIDGE_PORT`: bridge port (default `9090`)
+- `OPENCODE_NO_REPLY_MODE`: `auto|always_true|always_false` (default `auto`)
+- `OPENCODE_NO_REPLY`: fallback default used by `auto` mode (`true` by default)
+
+`auto` mode behavior:
+- question-like content (`?`/`？`/提问/问题/ask/question) -> `noReply=false` (let model answer)
+- notify-like content (回复/回答/通知/发送/reply/respond/notify) -> `noReply=true`

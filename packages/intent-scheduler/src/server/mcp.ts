@@ -95,9 +95,13 @@ function toMcpResponse<T extends Record<string, unknown>>(data: T) {
 }
 
 function parseTask(task: Task) {
+  const input = JSON.parse(task.input_json) as Record<string, unknown>;
+  const noReply = inferNoReplyForTask(task.goal, input);
   return {
     ...task,
-    input: JSON.parse(task.input_json),
+    input,
+    no_reply: noReply,
+    no_reply_text: `否回复:${noReply ? '是' : '否'}`,
     callback_headers: task.callback_headers_json
       ? JSON.parse(task.callback_headers_json)
       : undefined,
@@ -271,6 +275,96 @@ function scanSessionIdFromUnknown(input: unknown): string | undefined {
   return undefined;
 }
 
+const FORCE_NOTIFY = /(不需要回复|无需回复|不要回复|仅发送|静默发送|silent|no\s*reply|do\s*not\s*reply)/i;
+const FORCE_ASK = /(需要回复|请回复|等待回复|要回复|请回答|请作答)/i;
+const ASK_PATTERNS: RegExp[] = [
+  /(提问|问题|请问|问下|问一下|问一问|询问|帮我问|问模型|向模型提问|向ai提问)/i,
+  /(总结|概括|分析|解释|翻译|改写|润色|给出|列出|规划|判断|评估|比较|推荐)/i,
+  /\b(ask|question|summarize|analyze|explain|translate|recommend)\b/i,
+];
+const NOTIFY_PATTERNS: RegExp[] = [
+  /(回复|回答|告知|通知|播报|提醒|发送|转告|同步|推送)/i,
+  /(发给我|发到会话|仅通知|只通知|定时提醒)/i,
+  /\b(reply|respond|notify|push|broadcast|remind)\b/i,
+];
+
+function inferNoReplyByText(text: string, fallback = true): boolean {
+  const normalized = text.trim();
+  if (!normalized) {
+    return fallback;
+  }
+  if (FORCE_NOTIFY.test(normalized)) {
+    return true;
+  }
+  if (FORCE_ASK.test(normalized)) {
+    return false;
+  }
+  if (/[?？]$/.test(normalized)) {
+    return false;
+  }
+  if (/(吗|么|呢)$/.test(normalized)) {
+    return false;
+  }
+
+  let askScore = 0;
+  let notifyScore = 0;
+  for (const pattern of ASK_PATTERNS) {
+    if (pattern.test(normalized)) {
+      askScore += 2;
+    }
+  }
+  for (const pattern of NOTIFY_PATTERNS) {
+    if (pattern.test(normalized)) {
+      notifyScore += 2;
+    }
+  }
+  if (/请你|请帮我|帮我|麻烦你|请用/.test(normalized)) {
+    askScore += 1;
+  }
+  if (/每\d+\s*(秒|分钟|分|小时)/.test(normalized) && /提醒/.test(normalized)) {
+    notifyScore += 1;
+  }
+  if (askScore > notifyScore) {
+    return false;
+  }
+  if (notifyScore > askScore) {
+    return true;
+  }
+  return fallback;
+}
+
+function scanMessageFromUnknown(input: unknown): string | undefined {
+  if (!input || typeof input !== 'object') {
+    return undefined;
+  }
+  const queue: unknown[] = [input];
+  while (queue.length > 0) {
+    const node = queue.shift();
+    if (!node || typeof node !== 'object') {
+      continue;
+    }
+    const obj = node as Record<string, unknown>;
+    const directKeys = ['message', 'text', 'prompt', 'question'];
+    for (const key of directKeys) {
+      const value = obj[key];
+      if (typeof value === 'string' && value.length > 0) {
+        return value;
+      }
+    }
+    for (const value of Object.values(obj)) {
+      if (value && typeof value === 'object') {
+        queue.push(value);
+      }
+    }
+  }
+  return undefined;
+}
+
+function inferNoReplyForTask(goal: string, executionInput?: Record<string, unknown>): boolean {
+  const text = scanMessageFromUnknown(executionInput) ?? goal;
+  return inferNoReplyByText(text, true);
+}
+
 function resolveWorkspaceAndApiKey(
   workspaceId?: string,
   apiKey?: string,
@@ -427,9 +521,12 @@ export async function startServer(): Promise<void> {
         task_id: task.id,
         adapter: task.adapter,
       });
+      const noReply = inferNoReplyForTask(input.goal, input.execution.input);
       return toMcpResponse({
         task_id: task.id,
         status: task.status,
+        no_reply: noReply,
+        no_reply_text: `否回复:${noReply ? '是' : '否'}`,
         next_run_at: task.next_run_at,
       });
     }
@@ -493,9 +590,12 @@ export async function startServer(): Promise<void> {
         task_id: task.id,
         session_id: sessionId,
       });
+      const noReply = inferNoReplyForTask(input.goal, { message });
       return toMcpResponse({
         task_id: task.id,
         status: task.status,
+        no_reply: noReply,
+        no_reply_text: `否回复:${noReply ? '是' : '否'}`,
         next_run_at: task.next_run_at,
         session_id: sessionId,
       });

@@ -13,7 +13,7 @@ const executeSchema = z.object({
   workspace_id: z.string().min(1),
   session_id: z.string().min(1),
   goal: z.string().min(1),
-  skill_ref: z.string().optional(),
+  skill_ref: z.string().nullable().optional(),
   input: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -124,7 +124,8 @@ export function createSchedulerBridge(options: BridgeOptions): Hono {
 }
 
 function formatCallbackMessage(payload: SchedulerCallbackPayload) {
-  const text = `[${payload.status}] ${payload.summary}`;
+  const text =
+    payload.status === "SUCCEEDED" ? payload.summary : `[${payload.status}] ${payload.summary}`;
   return {
     text,
     metadata: {
