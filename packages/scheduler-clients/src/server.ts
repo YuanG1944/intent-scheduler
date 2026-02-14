@@ -25,21 +25,30 @@ const app = createSchedulerBridge({
   callbackAuthBearer: process.env.SCHEDULER_CALLBACK_BEARER_TOKEN,
   hooks: {
     async executeTask(req: SchedulerExecuteRequest): Promise<SchedulerExecuteResponse> {
-      const payload = req.input?.payload;
-      const message =
-        payload &&
-        typeof payload === "object" &&
-        typeof (payload as Record<string, unknown>).message === "string"
-          ? ((payload as Record<string, unknown>).message as string)
+      const payload =
+        req.input?.payload && typeof req.input.payload === "object"
+          ? (req.input.payload as Record<string, unknown>)
           : undefined;
+      const message =
+        typeof payload?.message === "string"
+          ? payload.message
+          : typeof req.input?.message === "string"
+            ? req.input.message
+            : undefined;
+      const summary = message ?? req.goal;
+      const explicitNoReply = getExplicitNoReply(req.input, payload);
+      const inferredNoReply = inferNoReply(summary, opencodeNoReply);
+      const noReply = explicitNoReply ?? inferredNoReply;
 
       return {
         status: "SUCCEEDED",
-        summary: message ?? req.goal,
+        summary,
         result: {
           task_id: req.task_id,
           run_id: req.run_id,
           goal: req.goal,
+          no_reply: noReply,
+          no_reply_source: explicitNoReply == null ? "inferred" : "explicit",
           input: req.input ?? {},
         },
       };
@@ -77,4 +86,40 @@ function normalizeNoReplyMode(raw?: string): OpencodeNoReplyMode {
     return value;
   }
   return "auto";
+}
+
+function getExplicitNoReply(
+  input?: Record<string, unknown>,
+  payload?: Record<string, unknown>,
+): boolean | undefined {
+  const candidates = [input?.no_reply, payload?.no_reply, input?.noReply, payload?.noReply];
+  for (const value of candidates) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function inferNoReply(text: string, fallback: boolean): boolean {
+  const normalized = text.trim();
+  if (!normalized) {
+    return fallback;
+  }
+  if (/(不需要回复|无需回复|不要回复|仅发送|静默发送|silent|no\s*reply|do\s*not\s*reply)/i.test(normalized)) {
+    return true;
+  }
+  if (/(需要回复|请回复|等待回复|要回复|请回答|请作答|need reply|please reply|wait for response)/i.test(normalized)) {
+    return false;
+  }
+  if (/[?？]$/.test(normalized) || /(吗|么|呢)$/.test(normalized)) {
+    return false;
+  }
+  if (/(提问|问题|请问|询问|总结|分析|解释|翻译|推荐|ask|question|summarize|analyze|explain|translate|recommend)/i.test(normalized)) {
+    return false;
+  }
+  if (/(通知|提醒|发送|推送|转告|notify|remind|send|push|broadcast)/i.test(normalized)) {
+    return true;
+  }
+  return fallback;
 }

@@ -126,6 +126,7 @@ export function createSchedulerBridge(options: BridgeOptions): Hono {
 function formatCallbackMessage(payload: SchedulerCallbackPayload) {
   const text =
     payload.status === "SUCCEEDED" ? payload.summary : `[${payload.status}] ${payload.summary}`;
+  const resultNoReply = payload.result?.no_reply;
   return {
     text,
     metadata: {
@@ -134,6 +135,7 @@ function formatCallbackMessage(payload: SchedulerCallbackPayload) {
       task_id: payload.task_id,
       run_id: payload.run_id,
       attempt: payload.attempt,
+      ...(typeof resultNoReply === "boolean" ? { no_reply: resultNoReply } : {}),
       result: payload.result,
       error: payload.error,
     },

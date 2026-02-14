@@ -556,6 +556,7 @@ export async function startServer(): Promise<void> {
       const sessionId = resolveSessionId(input.session_id, extra);
       const title = input.title ?? input.goal.slice(0, 24);
       const message = input.message ?? input.goal;
+      const noReply = inferNoReplyForTask(input.goal, { message });
 
       const createInput: CreateTaskInput = {
         workspace_id: auth.workspaceId,
@@ -569,6 +570,7 @@ export async function startServer(): Promise<void> {
             endpoint: executionEndpoint,
             method: 'POST',
             timeout_ms: 30000,
+            no_reply: noReply,
             payload: { message },
           },
         },
@@ -590,7 +592,6 @@ export async function startServer(): Promise<void> {
         task_id: task.id,
         session_id: sessionId,
       });
-      const noReply = inferNoReplyForTask(input.goal, { message });
       return toMcpResponse({
         task_id: task.id,
         status: task.status,
