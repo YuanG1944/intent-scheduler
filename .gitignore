@@ -137,3 +137,19 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Intent Scheduler local runtime artifacts
+*.db
+*.db-shm
+*.db-wal
+
+# Monorepo local artifacts
+packages/*/*.db
+packages/*/*.db-shm
+packages/*/*.db-wal
+
+# local runner state
+.run/
+
+# opencode local config override
+opencode.json

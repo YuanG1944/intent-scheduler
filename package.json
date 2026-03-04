@@ -1,0 +1,17 @@
+{
+  "name": "intent-scheduler-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:mcp-opencode": "bash ./scripts/run-mcp-for-opencode.sh",
+    "up": "./scripts/up.sh",
+    "down": "./scripts/down.sh",
+    "dev": "cd packages/intent-scheduler && bun run dev",
+    "dev:server": "cd packages/intent-scheduler && bun run dev",
+    "dev:clients": "cd packages/scheduler-clients && bun run dev",
+    "test": "cd packages/intent-scheduler && bun run test && cd ../scheduler-clients && bun run test",
+    "typecheck": "cd packages/intent-scheduler && bun run typecheck && cd ../scheduler-clients && bun run typecheck"
+  }
+}
